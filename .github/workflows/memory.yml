@@ -4,49 +4,52 @@ on:
   # 保留 push / PR 触发
   push:
   pull_request:
-
-  # 新增手动触发，并声明 8 个输入参数
+  
   workflow_dispatch:
     inputs:
-      包名:
+      package_name:
         description: '包名（字符串）'
         required: true
-      模块:
+        type: string
+      module:
         description: '模块（字符串）'
         required: true
-      内存:
+        type: string
+      memory:
         description: '内存（字符串）'
         required: true
-      模块索引:
+        type: string
+      module_index:
         description: '模块索引（整数）'
         required: true
-        type: number
-      指针链条:
+        type: string
+      pointer_chain:
         description: '指针链条（字符串）'
         required: true
-      修改方式:
+        type: string
+      modify_mode:
         description: '修改方式'
         required: true
         type: choice
         options:
-          - 读取
-          - 修改
-          - 读取+修改
-          - 冻结修改
-      修改类型:
+          - read
+          - modify
+          - read_modify
+          - freeze
+      value_type:
         description: '修改类型'
         required: true
         type: choice
         options:
           - float
           - int
-      平台:
+      platform:
         description: '平台'
         required: true
         type: choice
         options:
-          - Android 64
-          - 模拟器64
+          - 真机 64
+          - 模拟器 64
 
 env:
   NDK_VERSION: r27
@@ -60,15 +63,14 @@ jobs:
       # 1. 打印用户输入
       - name: 打印用户输入参数
         run: |
-          echo "包名        : ${{ github.event.inputs.包名 }}"
-          echo "模块        : ${{ github.event.inputs.模块 }}"
-          echo "内存        : ${{ github.event.inputs.内存 }}"
-          echo "模块索引    : ${{ github.event.inputs.模块索引 }}"
-          echo "指针链条    : ${{ github.event.inputs.指针链条 }}"
-          echo "修改方式    : ${{ github.event.inputs.修改方式 }}"
-          echo "修改类型    : ${{ github.event.inputs.修改类型 }}"
-          echo "平台        : ${{ github.event.inputs.平台 }}"
-
+          echo "包名        : ${{ github.event.inputs.package_name }}"
+          echo "模块        : ${{ github.event.inputs.module }}"
+          echo "内存        : ${{ github.event.inputs.memory }}"
+          echo "模块索引    : ${{ github.event.inputs.module_index }}"
+          echo "指针链条    : ${{ github.event.inputs.pointer_chain }}"
+          echo "修改方式    : ${{ github.event.inputs.modify_mode }}"
+          echo "修改类型    : ${{ github.event.inputs.value_type }}"
+          echo "平台        : ${{ github.event.inputs.platform }}"
       # 2. 常规 checkout
       - name: Checkout source
         uses: actions/checkout@v4
