@@ -32,10 +32,10 @@ on:
         required: true
         type: choice
         options:
-          - read
-          - modify
-          - read_modify
-          - freeze
+          - 读取
+          - 修改
+          - 读取并修改
+          - 修改冻结
       value_type:
         description: '修改类型'
         required: true
@@ -43,6 +43,10 @@ on:
         options:
           - float
           - int
+      modify_value:
+        description: '修改值'
+        required: true
+        type: string
       platform:
         description: '平台'
         required: true
@@ -69,6 +73,7 @@ jobs:
           echo "模块索引    : ${{ github.event.inputs.module_index }}"
           echo "指针链条    : ${{ github.event.inputs.pointer_chain }}"
           echo "修改方式    : ${{ github.event.inputs.modify_mode }}"
+          echo "修改值      : ${{ github.event.inputs.modify_value }}"
           echo "修改类型    : ${{ github.event.inputs.value_type }}"
           echo "平台        : ${{ github.event.inputs.platform }}"
       # 2. 常规 checkout
@@ -113,6 +118,40 @@ jobs:
             sed -i "s/std::vector<uintptr_t> pointers = {[^}]*/std::vector<uintptr_t> pointers = { $chain/" memory.cpp
           fi
           cat memory.cpp
+      # 5.2. 根据修改方式插入操作代码
+      - name: 根据修改方式插入操作代码
+        run: |
+          mode="${{ github.event.inputs.modify_mode }}"
+          vtype="${{ github.event.inputs.value_type }}"
+          mvalue="${{ github.event.inputs.modify_value }}"
+          code=""
+          if [ "$mode" = "读取" ]; then
+            if [ "$vtype" = "int" ]; then
+              code='auto value = smemory::read_int(module_base);\n    std::cout << "读取数据: " << value << std::endl;'
+            else
+              code='auto value = smemory::read_float(module_base);\n    std::cout << "读取数据: " << value << std::endl;'
+            fi
+          elif [ "$mode" = "修改" ]; then
+            if [ "$vtype" = "int" ]; then
+              code="smemory::write_int(module_base, $mvalue);"
+            else
+              code="smemory::write_float(module_base, $mvalue);"
+            fi
+          elif [ "$mode" = "读取并修改" ]; then
+            if [ "$vtype" = "int" ]; then
+              code='auto value = smemory::read_int(module_base);\n    std::cout << "原始数据: " << value << std::endl;\n    smemory::write_int(module_base, '$mvalue');\n    auto value2 = smemory::read_int(module_base);\n    std::cout << "修改后数据: " << value2 << std::endl;'
+            else
+              code='auto value = smemory::read_float(module_base);\n    std::cout << "原始数据: " << value << std::endl;\n    smemory::write_float(module_base, '$mvalue');\n    auto value2 = smemory::read_float(module_base);\n    std::cout << "修改后数据: " << value2 << std::endl;'
+            fi
+          elif [ "$mode" = "修改冻结" ]; then
+            if [ "$vtype" = "int" ]; then
+              code='while(true) { smemory::write_int(module_base, '$mvalue'); }'
+            else
+              code='while(true) { smemory::write_float(module_base, '$mvalue'); }'
+            fi
+          fi
+          # 插入到 return 0; 之前
+          awk -v code="$code" '{if($0~/return 0;/){print code; print $0} else {print $0}}' memory.cpp > memory.cpp.tmp && mv memory.cpp.tmp memory.cpp
       # 6. 使用 ndk-build 构建
       - name: Run ndk-build
         run: |

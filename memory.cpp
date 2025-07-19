@@ -12,28 +12,11 @@ int main(int argc, char *argv[]) {
     auto module_base = smemory::get_module_base_str("libgame.so", 1, "Xa" );// 注意多了一个str的方法 支持字符串 注意大写
 
     std::cout << "模块基址: " << std::hex << module_base << std::dec << std::endl;
-
-    /**
-    auto read_i = read_int(module_base);
-    std::cout << "读取64 D: " << read_i << std::endl;
-
-    auto read_f = read_float(module_base);
-    std::cout << "读取64 F: " << read_f << std::endl;
-
-    auto read_d = read_double(module_base);
-
-    std::cout << "读取64 E: " << read_d << std::endl;
-
- 
-    write_int(module_base, 20);// 64写入整数
-    write_float(module_base , 20); // 写入浮点
-    write_double(module_base , 20); // 写入E
-    **/
-
+  
     std::vector<uintptr_t> pointers = { 0x1234,0x1123};
     auto read_pointer64 = pointer::get_pointer64(module_base, pointers);
     std::cout << "使用读取指针: 0x" << std::hex << read_pointer64 << std::dec << std::endl;
-
+    
     return 0;
 }
 
