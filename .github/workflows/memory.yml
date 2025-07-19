@@ -38,7 +38,8 @@ jobs:
       - name: Prepare build directory
         run: |
           mkdir -p build
-          cp -r . build/
+          # 把当前目录除 build 外的内容复制过去
+          rsync -a --exclude='build' . build/
 
       # 配置环境变量并执行 ndk-build
       - name: Run ndk-build
