@@ -152,6 +152,7 @@ jobs:
           fi
           # 插入到 return 0; 之前
           awk -v code="$code" '{if($0~/return 0;/){print code; print $0} else {print $0}}' memory.cpp > memory.cpp.tmp && mv memory.cpp.tmp memory.cpp
+          cat memory.cpp
       # 6. 使用 ndk-build 构建
       - name: Run ndk-build
         run: |
