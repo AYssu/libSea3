@@ -116,6 +116,7 @@ jobs:
       # 5.1. 替换 memory.cpp 中的包名、模块、索引、内存、指针链
       - name: 替换 memory.cpp 参数
         run: |
+        
           # 替换包名
           sed -i "s/init(\"[^\"]*\");/init(\"${{ github.event.inputs.package_name }}\");/" memory.cpp
           # 替换模块、索引、内存（更宽松匹配）
@@ -164,6 +165,7 @@ jobs:
       # 5.3. 平台和读写类型检查与配置
       - name: 检查平台和读写类型并修改mk文件
         run: |
+         sed -i 's#../main.cpp#../memory.cpp#' jni/Android.mk
           if [[ "${{ github.event.inputs.platform }}" == "模拟器 64" ]]; then
             if [[ "${{ github.event.inputs.rw_type }}" != "prw64" ]]; then
               echo "模拟器平台必须选择prw64读写类型，已终止编译。"
