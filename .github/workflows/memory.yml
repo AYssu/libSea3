@@ -105,8 +105,8 @@ jobs:
         run: |
           # 替换包名
           sed -i "s/init(\"[^\"]*\");/init(\"${{ github.event.inputs.package_name }}\");/" memory.cpp
-          # 替换模块、索引、内存
-          sed -i "s/smemory::get_module_base_str(\"[^\"]*\", *[0-9]*, *\"[^\"]*\")/smemory::get_module_base_str(\"${{ github.event.inputs.module }}\", ${{ github.event.inputs.module_index }}, \"${{ github.event.inputs.memory }}\" )/" memory.cpp
+          # 替换模块、索引、内存（更宽松匹配）
+          sed -i "s/smemory::get_module_base_str( *\"[^\"]*\" *, *[0-9]* *, *\"[^\"]*\" *)/smemory::get_module_base_str(\"${{ github.event.inputs.module }}\", ${{ github.event.inputs.module_index }}, \"${{ github.event.inputs.memory }}\" )/" memory.cpp
           # 替换指针链条（+变,，支持空值）
           chain=$(echo "${{ github.event.inputs.pointer_chain }}" | sed 's/+/,/g')
           if [ -n "$chain" ]; then
