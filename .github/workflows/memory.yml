@@ -103,9 +103,9 @@ jobs:
       # 5.1. 替换 memory.cpp 中的包名、模块、索引、内存、指针链
       - name: 替换 memory.cpp 参数
         run: |
-          sed -i 's/init("[^"]*");/init("'"${{ github.event.inputs.package_name }}"'");/' memory.cpp
-          sed -i 's/smemory::get_module_base_str("[^"]*", *[0-9]*, *"[^"]*")/smemory::get_module_base_str("'"${{ github.event.inputs.module }}'", ${{ github.event.inputs.module_index }}, "'"${{ github.event.inputs.memory }}'" )/' memory.cpp
-          chain=$(echo "${{ github.event.inputs.pointer_chain }}" | sed 's/+/,/g')
+          sed -i "s/init(\"[^\"]*\");/init(\"gg.pointer\");/" memory.cpp
+          sed -i "s/smemory::get_module_base_str(\"[^\"]*\", *[0-9]*, *\"[^\"]*\")/smemory::get_module_base_str(\"libgame.so\", 1, \"Xa\" )/" memory.cpp
+          chain=$(echo "0x1234+0x1123" | sed 's/+/,/g')
           sed -i "s/std::vector<uintptr_t> pointers = {[^}]*/std::vector<uintptr_t> pointers = { $chain/" memory.cpp
           cat memory.cpp
       # 6. 使用 ndk-build 构建
