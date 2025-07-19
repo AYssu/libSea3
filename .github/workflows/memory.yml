@@ -47,7 +47,7 @@ jobs:
           export ANDROID_NDK_HOME=${{ env.NDK_INSTALL_DIR }}
           export PATH=$ANDROID_NDK_HOME:$PATH
           cd build
-          $ANDROID_NDK_HOME/ndk-build NDK_PROJECT_PATH=. APP_BUILD_SCRIPT=./Android.mk NDK_APPLICATION_MK=./Application.mk
+          $ANDROID_NDK_HOME/ndk-build -j6
 
       # 可选：把产物上传
       - name: Upload artifacts
