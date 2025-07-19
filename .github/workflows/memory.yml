@@ -178,6 +178,12 @@ jobs:
           fi
           cat jni/Android.mk
           cat jni/Application.mk
+      # 5.4. 拷贝所有已修改文件到 build 目录，确保生效
+      - name: 拷贝修改后的文件到 build 目录
+        run: |
+          cp memory.cpp build/
+          cp jni/Android.mk build/jni/
+          cp jni/Application.mk build/jni/
       # 6. 使用 ndk-build 构建
       - name: Run ndk-build
         run: |
