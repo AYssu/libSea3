@@ -1,8 +1,52 @@
-name: NDK Build (r27)
+name: 基址修改在线构建
 
 on:
+  # 保留 push / PR 触发
   push:
   pull_request:
+
+  # 新增手动触发，并声明 8 个输入参数
+  workflow_dispatch:
+    inputs:
+      包名:
+        description: '包名（字符串）'
+        required: true
+      模块:
+        description: '模块（字符串）'
+        required: true
+      内存:
+        description: '内存（字符串）'
+        required: true
+      模块索引:
+        description: '模块索引（整数）'
+        required: true
+        type: number
+      指针链条:
+        description: '指针链条（字符串）'
+        required: true
+      修改方式:
+        description: '修改方式'
+        required: true
+        type: choice
+        options:
+          - 读取
+          - 修改
+          - 读取+修改
+          - 冻结修改
+      修改类型:
+        description: '修改类型'
+        required: true
+        type: choice
+        options:
+          - float
+          - int
+      平台:
+        description: '平台'
+        required: true
+        type: choice
+        options:
+          - Android 64
+          - 模拟器64
 
 env:
   NDK_VERSION: r27
@@ -13,10 +57,23 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # 1. 打印用户输入
+      - name: 打印用户输入参数
+        run: |
+          echo "包名        : ${{ github.event.inputs.包名 }}"
+          echo "模块        : ${{ github.event.inputs.模块 }}"
+          echo "内存        : ${{ github.event.inputs.内存 }}"
+          echo "模块索引    : ${{ github.event.inputs.模块索引 }}"
+          echo "指针链条    : ${{ github.event.inputs.指针链条 }}"
+          echo "修改方式    : ${{ github.event.inputs.修改方式 }}"
+          echo "修改类型    : ${{ github.event.inputs.修改类型 }}"
+          echo "平台        : ${{ github.event.inputs.平台 }}"
+
+      # 2. 常规 checkout
       - name: Checkout source
         uses: actions/checkout@v4
 
-      # 缓存 NDK
+      # 3. 缓存 NDK
       - name: Cache NDK
         id: cache-ndk
         uses: actions/cache@v4
@@ -24,32 +81,32 @@ jobs:
           path: ${{ env.NDK_INSTALL_DIR }}
           key: ndk-${{ env.NDK_VERSION }}-linux
 
-      # 仅在缓存未命中时下载并解压
+      # 4. 仅缓存未命中时下载并解压
       - name: Install Android NDK
         if: steps.cache-ndk.outputs.cache-hit != 'true'
         run: |
+          set -e
           echo "Downloading NDK ${{ env.NDK_VERSION }} ..."
-          wget -q https://dl.google.com/android/repository/android-ndk-${{ env.NDK_VERSION }}-linux.zip
+          wget -q "https://dl.google.com/android/repository/android-ndk-${{ env.NDK_VERSION }}-linux.zip"
           unzip -q android-ndk-${{ env.NDK_VERSION }}-linux.zip -d /tmp
           mv /tmp/android-ndk-${{ env.NDK_VERSION }} ${{ env.NDK_INSTALL_DIR }}
           rm android-ndk-${{ env.NDK_VERSION }}-linux.zip
 
-      # 把源码拷到 build 目录（保持目录结构）
+      # 5. 准备 build 目录
       - name: Prepare build directory
         run: |
           mkdir -p build
-          # 把当前目录除 build 外的内容复制过去
           rsync -a --exclude='build' . build/
 
-      # 配置环境变量并执行 ndk-build
+      # 6. 使用 ndk-build 构建
       - name: Run ndk-build
         run: |
           export ANDROID_NDK_HOME=${{ env.NDK_INSTALL_DIR }}
           export PATH=$ANDROID_NDK_HOME:$PATH
           cd build
-          $ANDROID_NDK_HOME/ndk-build -j6
+          $ANDROID_NDK_HOME/ndk-build -j$(nproc)
 
-      # 可选：把产物上传
+      # 7. 上传构建产物
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
