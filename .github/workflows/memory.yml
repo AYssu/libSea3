@@ -54,6 +54,13 @@ on:
         options:
           - 真机 64
           - 模拟器 64
+      rw_type:
+        description: '读写类型(模拟器选prw64)'
+        required: true
+        type: choice
+        options:
+          - syscall
+          - prw64
 
 env:
   NDK_VERSION: r27
@@ -76,6 +83,7 @@ jobs:
           echo "修改值      : ${{ github.event.inputs.modify_value }}"
           echo "修改类型    : ${{ github.event.inputs.value_type }}"
           echo "平台        : ${{ github.event.inputs.platform }}"
+          echo "读写方法    : ${{ github.event.inputs.rw_type }}"
       # 2. 常规 checkout
       - name: Checkout source
         uses: actions/checkout@v4
@@ -153,6 +161,23 @@ jobs:
           # 插入到 return 0; 之前
           awk -v code="$code" '{if($0~/return 0;/){print code; print $0} else {print $0}}' memory.cpp > memory.cpp.tmp && mv memory.cpp.tmp memory.cpp
           cat memory.cpp
+      # 5.3. 平台和读写类型检查与配置
+      - name: 检查平台和读写类型并修改mk文件
+        run: |
+          if [[ "${{ github.event.inputs.platform }}" == "模拟器 64" ]]; then
+            if [[ "${{ github.event.inputs.rw_type }}" != "prw64" ]]; then
+              echo "模拟器平台必须选择prw64读写类型，已终止编译。"
+              exit 1
+            fi
+            # 修改 Application.mk ABI
+            sed -i 's/APP_ABI := arm64-v8a/APP_ABI := x86_64/' jni/Application.mk
+          fi
+          if [[ "${{ github.event.inputs.rw_type }}" == "prw64" ]]; then
+            # 修改 Android.mk 源文件为 pread64_rv.cpp
+            sed -i 's#../src/syscall_rv.cpp#../src/pread64_rv.cpp#' jni/Android.mk
+          fi
+          cat jni/Android.mk
+          cat jni/Application.mk
       # 6. 使用 ndk-build 构建
       - name: Run ndk-build
         run: |
