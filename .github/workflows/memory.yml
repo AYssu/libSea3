@@ -120,7 +120,7 @@ jobs:
           # 替换包名
           sed -i "s/init(\"[^\"]*\");/init(\"${{ github.event.inputs.package_name }}\");/" memory.cpp
           # 替换模块、索引、内存（更宽松匹配）
-          sed -i "s/get_module_base_str( *\"[^\"]*\" *, *[0-9]* *, *\"[^\"]*\" *)/get_module_base_str(\"${{ github.event.inputs.module }}\", ${{ github.event.inputs.module_index }}, \"${{ github.event.inputs.memory }}\" )/" memory.cpp
+          sed -i "s/get_read_pointer64_str( *\"[^\"]*\" *, *[0-9]* *, *\"[^\"]*\" *)/get_read_pointer64_str(\"${{ github.event.inputs.module }}\", ${{ github.event.inputs.module_index }}, \"${{ github.event.inputs.memory }}\" )/" memory.cpp
           # 替换指针链条（+变,，支持空值）
           chain=$(echo "${{ github.event.inputs.pointer_chain }}" | sed 's/+/,/g')
           if [ -n "$chain" ]; then
@@ -136,27 +136,27 @@ jobs:
           code=""
           if [ "$mode" = "读取" ]; then
             if [ "$vtype" = "int" ]; then
-              code='auto value = read_int(module_base);\n    std::cout << "读取数据: " << value << std::endl;'
+              code='auto value = read_int(read_pointer64);\n    std::cout << "读取数据: " << value << std::endl;'
             else
-              code='auto value = read_float(module_base);\n    std::cout << "读取数据: " << value << std::endl;'
+              code='auto value = read_float(read_pointer64);\n    std::cout << "读取数据: " << value << std::endl;'
             fi
           elif [ "$mode" = "修改" ]; then
             if [ "$vtype" = "int" ]; then
-              code="write_int(module_base, $mvalue);"
+              code="write_int(read_pointer64, $mvalue);"
             else
-              code="write_float(module_base, $mvalue);"
+              code="write_float(read_pointer64, $mvalue);"
             fi
           elif [ "$mode" = "读取并修改" ]; then
             if [ "$vtype" = "int" ]; then
-              code='auto value = read_int(module_base);\n    std::cout << "原始数据: " << value << std::endl;\n    write_int(module_base, '$mvalue');\n    auto value2 = read_int(module_base);\n    std::cout << "修改后数据: " << value2 << std::endl;'
+              code='auto value = read_int(read_pointer64);\n    std::cout << "原始数据: " << value << std::endl;\n    write_int(read_pointer64, '$mvalue');\n    auto value2 = read_int(read_pointer64);\n    std::cout << "修改后数据: " << value2 << std::endl;'
             else
-              code='auto value = read_float(module_base);\n    std::cout << "原始数据: " << value << std::endl;\n    write_float(module_base, '$mvalue');\n    auto value2 = read_float(module_base);\n    std::cout << "修改后数据: " << value2 << std::endl;'
+              code='auto value = read_float(read_pointer64);\n    std::cout << "原始数据: " << value << std::endl;\n    write_float(read_pointer64, '$mvalue');\n    auto value2 = read_float(read_pointer64);\n    std::cout << "修改后数据: " << value2 << std::endl;'
             fi
           elif [ "$mode" = "修改冻结" ]; then
             if [ "$vtype" = "int" ]; then
-              code='while(true) { write_int(module_base, '$mvalue'); }'
+              code='while(true) { write_int(read_pointer64, '$mvalue'); }'
             else
-              code='while(true) { write_float(module_base, '$mvalue'); }'
+              code='while(true) { write_float(read_pointer64, '$mvalue'); }'
             fi
           fi
           # 插入到 return 0; 之前
