@@ -16,6 +16,88 @@
 // 需要引用这个 因为配置文件只需要引用一次
 #include "json.hpp"
 
+static const char *ws_reason_to_zh_local(const std::string &reason) {
+    // 同 network/verify.cpp 的 ws_reason_to_zh(reason)
+    if (reason == "MEMBER_EXPIRED") return "会员未开通或已过期";
+    if (reason == "AUTH_FAIL") return "用户名或密码错误";
+    if (reason == "BAD_APPSIG") return "应用签名校验失败";
+    if (reason == "APP_MISMATCH") return "应用标识不匹配";
+    if (reason == "EXPIRED") return "请求时间已过期";
+    if (reason == "REPLAY") return "请求重复(重放保护触发)";
+    if (reason == "BAD_SEQ") return "请求序号无效";
+    if (reason == "BAD_DEVICE") return "设备信息缺失或格式不合法";
+    if (reason == "DEVICE_BANNED") return "设备已被封禁";
+    if (reason == "DEVICE_CONFLICT") return "设备冲突，不允许绑定";
+    if (reason == "BIND_FAIL") return "设备绑定失败";
+    if (reason == "LOGIN_ELSEWHERE") return "账号在其他设备登录，本连接被挤下线";
+    if (reason == "NO_HELLO") return "缺少HELLO握手上下文";
+    if (reason == "BAD_PUBKEY") return "客户端公钥无效";
+    if (reason == "MISSING_CIPHER") return "缺少加密载荷";
+    if (reason == "DECRYPT_FAIL") return "AUTH解密失败";
+    if (reason == "ALREADY_AUTHED") return "连接已鉴权，不能重复认证";
+    if (reason == "APP_INVALID") return "应用无效或已禁用";
+    if (reason == "AUTH_INVALID") return "认证状态无效，请重新登录";
+    if (reason == "MISSING_FIELDS") return "请求字段缺失";
+    if (reason == "UNSUPPORTED") return "不支持的消息类型";
+    if (reason == "BAD_JSON") return "消息不是合法JSON";
+    if (reason == "MISSING_TYPE") return "缺少消息类型字段";
+    return "";
+}
+
+static std::string ws_extract_reason(const std::string &err) {
+    // 兼容形如 "... reason=MEMBER_EXPIRED" 或 "... [MEMBER_EXPIRED]"
+    if (err.empty()) return {};
+    const std::string key = "reason=";
+    auto p = err.find(key);
+    if (p != std::string::npos) {
+        p += key.size();
+        size_t e = err.find_first_of("] \r\n\t", p);
+        if (e == std::string::npos) e = err.size();
+        return err.substr(p, e - p);
+    }
+    auto lb = err.rfind('[');
+    auto rb = err.rfind(']');
+    if (lb != std::string::npos && rb != std::string::npos && lb + 1 < rb) {
+        return err.substr(lb + 1, rb - lb - 1);
+    }
+    return {};
+}
+
+static bool ws_reason_non_retryable(const std::string &err) {
+    // 来自 network/verify.cpp 的 ws_reason_to_zh(reason) 列表：这些属于业务拒绝/参数问题，重试也不会成功
+    static const char *kReasons[] = {
+        "MEMBER_EXPIRED",
+        "AUTH_FAIL",
+        "BAD_APPSIG",
+        "APP_MISMATCH",
+        "EXPIRED",
+        "REPLAY",
+        "BAD_SEQ",
+        "BAD_DEVICE",
+        "DEVICE_BANNED",
+        "DEVICE_CONFLICT",
+        "BIND_FAIL",
+        "LOGIN_ELSEWHERE",
+        "NO_HELLO",
+        "BAD_PUBKEY",
+        "MISSING_CIPHER",
+        "DECRYPT_FAIL",
+        "ALREADY_AUTHED",
+        "APP_INVALID",
+        "AUTH_INVALID",
+        "MISSING_FIELDS",
+        "UNSUPPORTED",
+        "BAD_JSON",
+        "MISSING_TYPE",
+    };
+    for (const auto *r : kReasons) {
+        if (!err.empty() && err.find(r) != std::string::npos) {
+            return true;
+        }
+    }
+    return false;
+}
+
 std::string generate_uuid_v4() {
     static std::random_device rd;
     static std::mt19937 gen(rd());
@@ -111,7 +193,7 @@ int main(int argc, char *argv[]) {
             // 关闭映射 能干嘛?跨进程通信啊同学,配置文件也能使用,不香嘛
         } break;
         case 3: {
-            auto http = shttp::http_get("https://www.easyverify.top");
+            auto http = shttp::http_get("https://www.ayssu.com");
             std::cout << "请求是否成功: " << http.success << std::endl;
             std::cout << "状态码: " << http.code << std::endl;
             std::cout << "响应数据: " << http.data << std::endl;
@@ -168,7 +250,7 @@ int main(int argc, char *argv[]) {
             std::cout << "-- 测试单码卡密绑定" << std::endl;
             sverify::verify_json json4 = {};// 清空结构体数据
             // NOLINTNEXTLINE
-            sverify::bind_card("YY579ULTFC6K2X2B", sutils::get_imei(3), json4);
+            sverify::bind_card("FRQWKF83DK33V5YS", sutils::get_imei(3), json4);
             if (json4.success) {
                 std::cout << "卡密ID: " << json4.card_id << std::endl;
                 std::cout << "到期时间: " << json4.end_time << std::endl;
@@ -178,6 +260,29 @@ int main(int argc, char *argv[]) {
                 std::cout << "解绑次数: " << json4.unbind_number << std::endl;
                 std::cout << "核心数据: " << json4.core << std::endl;
                 std::cout << "程序变量: " << json4.variables << std::endl;
+                std::cout << "心跳Token: " << json4.token << std::endl;
+
+                // 测试心跳：40秒一次，循环10次
+                if (!json4.token.empty()) {
+                    std::string currentToken = json4.token;
+                    for (int i = 1; i <= 10; i++) {
+                        std::cout << "\n-- 心跳第 " << i << "/10 次 (间隔40s)" << std::endl;
+                        sverify::verify_json hb = {};
+                        sverify::card_heartbeat(currentToken, hb);
+                        if (hb.success) {
+                            std::cout << "心跳成功, 新Token: " << hb.token << std::endl;
+                            std::cout << "剩余秒数: " << hb.available << std::endl;
+                            currentToken = hb.token; // 用新 token 替换旧的
+                        } else {
+                            std::cout << "心跳失败: " << hb.error_message << std::endl;
+                            break;
+                        }
+                        if (i < 10) {
+                            std::cout << "等待40秒..." << std::endl;
+                            std::this_thread::sleep_for(std::chrono::seconds(40));
+                        }
+                    }
+                }
             } else {
                 std::cout << "绑定卡密失败: " << json4.error_message << std::endl;
             }
@@ -311,13 +416,24 @@ int main(int argc, char *argv[]) {
         } break;
         case 11: {
             std::cout << "-- 测试网络验证-WS用户登录(含后台断线重连)" << std::endl;
-            const std::string username = "ayssu";
-            const std::string password = "admin666@";
+            const std::string username = "2997036064@qq.com";
+            const std::string password = "admin666";
             std::atomic<bool> ws_demo_running{true};
             std::thread ws_reconnect_thread([&]() {
                 while (ws_demo_running.load()) {
                     sverify::verify_json j{};
                     if (!sverify::user_ws_ensure_connected(username, password, j, false)) {
+                        if (ws_reason_non_retryable(j.error_message)) {
+                            const std::string reason = ws_extract_reason(j.error_message);
+                            const std::string zh = ws_reason_to_zh_local(reason);
+                            if (!reason.empty() && !zh.empty()) {
+                                std::cout << "[ws] 不可重试，停止重连: " << reason << " (" << zh << ")" << std::endl;
+                            } else {
+                                std::cout << "[ws] 不可重试，停止重连: " << j.error_message << std::endl;
+                            }
+                            ws_demo_running.store(false);
+                            break;
+                        }
                         if (!ws_demo_running.load()) {
                             break;
                         }
@@ -372,8 +488,10 @@ int main(int argc, char *argv[]) {
                     }
                 } else if (op == 5) {
                     std::cout << "WS持久连接: " << (sverify::user_ws_connected() ? "存在" : "不存在/已掉线") << std::endl;
+                } else if (op == 6) {
+                    sverify::ws_user_disconnect(true);
                 } else {
-                    std::cout << "未知命令，请输入0/1/2/3/4/5" << std::endl;
+                    std::cout << "未知命令，请输入0/1/2/3/4/5/6" << std::endl;
                 }
             }
         } break;

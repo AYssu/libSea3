@@ -47,6 +47,7 @@ namespace sverify {
         std::string error_message; // 失败的错误信息
         FILE *file;                // 文件句柄
         size_t file_size;          // 文件大小
+        bool potentially_shared;   // 心跳间隔>60秒，疑似多用户共用
     };
 
 
@@ -55,6 +56,7 @@ namespace sverify {
     bool get_variables(verify_json &json, bool log = false);                                                                                                            // 获取程序变量
     bool bind_card(const std::string &kami_, const std::string &imei_, sverify::verify_json &json_, bool log = false);                                                  // 单码卡密绑定
     bool unbind_card(const std::string &kami_, const std::string &imei_, sverify::verify_json &json_, bool log = false);                                                // 单码卡密换绑
+    bool card_heartbeat(const std::string &token_, sverify::verify_json &json_, bool log = false);                                                                     // 单码卡密心跳
     bool user_login(const std::string &username_, const std::string &password_, sverify::verify_json &json_, bool log = false);                                         // 用户登录
     bool user_heart_beat(const std::string &cid, const std::string &token_, sverify::verify_json &json_, bool log = false);                                             // 用户心跳
     void ws_user_disconnect(bool log = false);                                                                                                                            // 主动断开WS用户连接
