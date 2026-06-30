@@ -133,6 +133,7 @@ int main(int argc, char *argv[]) {
     std::cout << "9、工具类测试" << std::endl;
     std::cout << "10、WebSocket本地测试(wscat)" << std::endl;
     std::cout << "11、测试网络验证-WS用户登录" << std::endl;
+    std::cout << "12、测试网络验证-卡密WS心跳" << std::endl;
 
 
     auto test_num = custom_sutils::get_input_int("请输入调试的内容:");
@@ -193,7 +194,7 @@ int main(int argc, char *argv[]) {
             // 关闭映射 能干嘛?跨进程通信啊同学,配置文件也能使用,不香嘛
         } break;
         case 3: {
-            auto http = shttp::http_get("https://www.ayssu.com");
+            auto http = shttp::http_get("https://www.easyverify.top");
             std::cout << "请求是否成功: " << http.success << std::endl;
             std::cout << "状态码: " << http.code << std::endl;
             std::cout << "响应数据: " << http.data << std::endl;
@@ -250,7 +251,7 @@ int main(int argc, char *argv[]) {
             std::cout << "-- 测试单码卡密绑定" << std::endl;
             sverify::verify_json json4 = {};// 清空结构体数据
             // NOLINTNEXTLINE
-            sverify::bind_card("FRQWKF83DK33V5YS", sutils::get_imei(3), json4);
+            sverify::bind_card("APLU6CU7A5KU2ZNT", sutils::get_imei(3), json4);
             if (json4.success) {
                 std::cout << "卡密ID: " << json4.card_id << std::endl;
                 std::cout << "到期时间: " << json4.end_time << std::endl;
@@ -270,8 +271,14 @@ int main(int argc, char *argv[]) {
                         sverify::verify_json hb = {};
                         sverify::card_heartbeat(currentToken, hb);
                         if (hb.success) {
-                            std::cout << "心跳成功, 新Token: " << hb.token << std::endl;
-                            std::cout << "剩余秒数: " << hb.available << std::endl;
+                            std::cout << "心跳成功" << std::endl;
+                            std::cout << "  新Token: " << hb.token << std::endl;
+                            std::cout << "  剩余秒数: " << hb.available << std::endl;
+                            std::cout << "  到期时间: " << hb.end_time << std::endl;
+                            std::cout << "  卡密ID: " << hb.card_id << std::endl;
+                            std::cout << "  程序变量: " << hb.variables << std::endl;
+                            std::cout << "  服务器时间戳: " << hb.timestamp << std::endl;
+                            std::cout << "  疑似多用户共用: " << (hb.potentially_shared ? "是" : "否") << std::endl;
                             currentToken = hb.token; // 用新 token 替换旧的
                         } else {
                             std::cout << "心跳失败: " << hb.error_message << std::endl;
@@ -492,6 +499,67 @@ int main(int argc, char *argv[]) {
                     sverify::ws_user_disconnect(true);
                 } else {
                     std::cout << "未知命令，请输入0/1/2/3/4/5/6" << std::endl;
+                }
+            }
+        } break;
+        case 12: {
+            std::cout << "-- 测试网络验证-卡密WS心跳" << std::endl;
+            std::cout << "请输入卡密心跳token:" << std::endl;
+            std::string card_token;
+            std::cin >> card_token;
+
+            std::atomic<bool> card_ws_running{true};
+            std::thread card_ws_reconnect_thread([&]() {
+                while (card_ws_running.load()) {
+                    sverify::verify_json j{};
+                    if (!sverify::card_ws_connect(card_token, j, false)) {
+                        std::cout << "[card-ws] 连接失败: " << j.error_message << std::endl;
+                        if (!card_ws_running.load()) break;
+                        std::this_thread::sleep_for(std::chrono::seconds(2));
+                        continue;
+                    }
+                    std::cout << "[card-ws] 连接成功" << std::endl;
+                    break;
+                }
+            });
+
+            std::cout << "等待卡密WS连接(最多15秒)..." << std::endl;
+            const auto card_ws_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(15);
+            while (std::chrono::steady_clock::now() < card_ws_deadline && !sverify::card_ws_connected()) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(200));
+            }
+
+            if (card_ws_reconnect_thread.joinable()) {
+                card_ws_reconnect_thread.join();
+            }
+
+            if (!sverify::card_ws_connected()) {
+                std::cout << "卡密WS连接失败" << std::endl;
+                break;
+            }
+
+            std::cout << "卡密WS已连接，等待变量推送..." << std::endl;
+            std::cout << "0=退出 1=获取变量 2=连接状态" << std::endl;
+
+            while (true) {
+                int op = custom_sutils::get_input_int("请输入命令(0/1/2):");
+                if (op == 0) {
+                    sverify::card_ws_disconnect(false);
+                    std::cout << "卡密WS已断开" << std::endl;
+                    break;
+                } else if (op == 1) {
+                    sverify::verify_json var_json = {};
+                    if (sverify::card_ws_get_variables(var_json, false)) {
+                        std::cout << "获取变量成功:" << std::endl;
+                        std::cout << "  变量: " << var_json.variables << std::endl;
+                        std::cout << "  时间戳: " << var_json.timestamp << std::endl;
+                    } else {
+                        std::cout << "获取变量失败: " << var_json.error_message << std::endl;
+                    }
+                } else if (op == 2) {
+                    std::cout << "卡密WS连接: " << (sverify::card_ws_connected() ? "存在" : "不存在/已掉线") << std::endl;
+                } else {
+                    std::cout << "未知命令" << std::endl;
                 }
             }
         } break;
