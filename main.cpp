@@ -504,16 +504,21 @@ int main(int argc, char *argv[]) {
         } break;
         case 12: {
             std::cout << "-- 测试网络验证-卡密WS心跳" << std::endl;
-            std::cout << "请输入卡密心跳token:" << std::endl;
-            std::string card_token;
-            std::cin >> card_token;
+            std::string card_token = custom_sutils::get_input_string("请输入卡密心跳token:");
 
             std::atomic<bool> card_ws_running{true};
             std::thread card_ws_reconnect_thread([&]() {
+                int fail_count = 0;
                 while (card_ws_running.load()) {
                     sverify::verify_json j{};
                     if (!sverify::card_ws_connect(card_token, j, false)) {
-                        std::cout << "[card-ws] 连接失败: " << j.error_message << std::endl;
+                        fail_count++;
+                        std::cout << "[card-ws] 连接失败(" << fail_count << "/3): " << j.error_message << std::endl;
+                        if (fail_count >= 3) {
+                            std::cout << "[card-ws] 连续失败3次，停止重连" << std::endl;
+                            card_ws_running.store(false);
+                            break;
+                        }
                         if (!card_ws_running.load()) break;
                         std::this_thread::sleep_for(std::chrono::seconds(2));
                         continue;
