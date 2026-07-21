@@ -7,6 +7,7 @@
 #include <unordered_map>
 
 #include <any>
+#include "json.hpp"
 extern std::string ciphergate_host;   // CipherGate host, only this URL part is configurable
 extern std::string ciphergate_app_id; // 网页登录场景仍可能使用
 extern std::string ciphergate_client_version;// 客户端版本号(用于更新检查)
@@ -75,6 +76,8 @@ namespace sverify {
     std::string ws_variable_pool_dump(bool include_cipher = false);                                                                                                       // 变量池全部数据(JSON)
     bool ws_variable_pool_decrypt_by_now(sverify::verify_json &json_, int &back_seconds, bool log = false);                                                            // 从当前时间向前回溯解密
     std::any call_function(const std::function<std::any(std::vector<std::any>)>& func, std::vector<std::any> args);                                                                                                                                                 // 初始化逻辑方法
+    bool ws_function(const std::string &func_name, const nlohmann::json &params, nlohmann::json &result, int timeout_ms = 30000, bool log = false);                                                 // 用户WS函数调用(FUNC_CALL→FUNC_RESULT/FUNC_ERROR)
+    bool card_ws_function(const std::string &func_name, const nlohmann::json &params, nlohmann::json &result, int timeout_ms = 30000, bool log = false);                                             // 卡密WS函数调用(FUNC_CALL→FUNC_RESULT/FUNC_ERROR)
     void safe_module(bool log);                                                                                                                                         //启用安全模式
 }
 
